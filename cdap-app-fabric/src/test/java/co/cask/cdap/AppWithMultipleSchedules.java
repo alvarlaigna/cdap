@@ -20,7 +20,6 @@ import co.cask.cdap.api.ProgramStatus;
 import co.cask.cdap.api.app.AbstractApplication;
 import co.cask.cdap.api.app.ProgramType;
 import co.cask.cdap.api.customaction.AbstractCustomAction;
-import co.cask.cdap.api.schedule.Schedules;
 import co.cask.cdap.api.workflow.AbstractWorkflow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +32,7 @@ public class AppWithMultipleSchedules extends AbstractApplication {
   public static final String SOME_WORKFLOW = "SomeWorkflow";
   public static final String ANOTHER_WORKFLOW = "AnotherWorkflow";
   public static final String TRIGGERED_WORKFLOW = "TriggeredWorkflow";
+  public static final String WORKFLOW_COMPLETED_SCHEDULE = "WorkflowCompletedSchedule";
 
   @Override
   public void configure() {
@@ -55,7 +55,7 @@ public class AppWithMultipleSchedules extends AbstractApplication {
     schedule(buildSchedule("WorkflowCompletedFailedSchedule", ProgramType.WORKFLOW, TRIGGERED_WORKFLOW)
                .triggerOnProgramStatus(ProgramType.WORKFLOW, SOME_WORKFLOW,
                                        ProgramStatus.COMPLETED, ProgramStatus.FAILED));
-    schedule(buildSchedule("WorkflowCompletedSchedule2", ProgramType.WORKFLOW, TRIGGERED_WORKFLOW)
+    schedule(buildSchedule(WORKFLOW_COMPLETED_SCHEDULE, ProgramType.WORKFLOW, TRIGGERED_WORKFLOW)
                .triggerOnProgramStatus(ProgramType.WORKFLOW, ANOTHER_WORKFLOW, ProgramStatus.COMPLETED));
   }
 
@@ -93,19 +93,22 @@ public class AppWithMultipleSchedules extends AbstractApplication {
     public void configure() {
       setName(NAME);
       setDescription("AnotherWorkflow description");
-      addAction(new AnotherDummyAction());
+      addAction(new DummyWorkflowTokenAction());
     }
   }
 
   /**
    * Another Dummy Action
    */
-  public static class AnotherDummyAction extends AbstractCustomAction {
-    private static final Logger LOG = LoggerFactory.getLogger(AnotherDummyAction.class);
+  public static class DummyWorkflowTokenAction extends AbstractCustomAction {
+    private static final Logger LOG = LoggerFactory.getLogger(DummyWorkflowTokenAction.class);
+    public static final String DUMMY_KEY = "dummy.key";
+    public static final String DUMMY_VALUE = "dummy.value";
 
     @Override
     public void run() {
-      LOG.info("Ran another dummy action");
+      LOG.info("Ran a dummy workflow token action");
+      getContext().getWorkflowToken().put(DUMMY_KEY, DUMMY_VALUE);
     }
   }
 
@@ -122,5 +125,3 @@ public class AppWithMultipleSchedules extends AbstractApplication {
     }
   }
 }
-
-

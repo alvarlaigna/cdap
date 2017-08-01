@@ -19,7 +19,8 @@ package co.cask.cdap.scheduler;
 import co.cask.cdap.api.ProgramStatus;
 import co.cask.cdap.api.data.DatasetContext;
 import co.cask.cdap.api.dataset.DatasetManagementException;
-import co.cask.cdap.app.store.Store;
+import co.cask.cdap.api.workflow.NodeValue;
+import co.cask.cdap.api.workflow.WorkflowToken;
 import co.cask.cdap.common.NotFoundException;
 import co.cask.cdap.common.conf.CConfiguration;
 import co.cask.cdap.common.conf.Constants;
@@ -29,15 +30,21 @@ import co.cask.cdap.internal.app.runtime.schedule.ProgramScheduleRecord;
 import co.cask.cdap.internal.app.runtime.schedule.ProgramScheduleStatus;
 import co.cask.cdap.internal.app.runtime.schedule.queue.JobQueueDataset;
 import co.cask.cdap.internal.app.runtime.schedule.store.Schedulers;
+import co.cask.cdap.internal.app.runtime.workflow.BasicWorkflowToken;
 import co.cask.cdap.internal.app.services.AbstractNotificationSubscriberService;
 import co.cask.cdap.internal.app.services.ProgramNotificationSubscriberService;
+import co.cask.cdap.internal.app.store.RunRecordMeta;
 import co.cask.cdap.messaging.MessagingService;
 import co.cask.cdap.proto.Notification;
+import co.cask.cdap.proto.ProgramRunStatus;
 import co.cask.cdap.proto.ProgramType;
 import co.cask.cdap.proto.id.DatasetId;
+import co.cask.cdap.proto.id.ProgramId;
 import co.cask.cdap.proto.id.ProgramRunId;
 import co.cask.cdap.proto.id.ScheduleId;
-import co.cask.cdap.proto.id.WorkflowId;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -47,8 +54,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,6 +69,7 @@ import java.util.concurrent.TimeUnit;
 public class ScheduleNotificationSubscriberService extends AbstractNotificationSubscriberService {
   private static final Logger LOG = LoggerFactory.getLogger(ScheduleNotificationSubscriberService.class);
   private static final Gson GSON = new Gson();
+
   private final CConfiguration cConf;
   private final DatasetFramework datasetFramework;
   private ExecutorService taskExecutorService;
@@ -86,6 +96,7 @@ public class ScheduleNotificationSubscriberService extends AbstractNotificationS
     taskExecutorService.submit(new SchedulerEventNotificationSubscriberThread(
       cConf.get(Constants.Scheduler.STREAM_SIZE_EVENT_TOPIC)));
     taskExecutorService.submit(new DataEventNotificationSubscriberThread());
+    taskExecutorService.submit(new ProgramStatusEventNotificationSubscriberThread());
     programNotificationSubscriberService.startAndWait();
   }
 
@@ -192,8 +203,8 @@ public class ScheduleNotificationSubscriberService extends AbstractNotificationS
    * Processes notifications that are guaranteed to trigger a program
    */
   private class ProgramStatusEventNotificationSubscriberThread extends SchedulerEventNotificationSubscriberThread {
-    ProgramStatusEventNotificationSubscriberThread(String topic) {
-      super(topic);
+    ProgramStatusEventNotificationSubscriberThread() {
+      super(cConf.get(Constants.AppFabric.PROGRAM_STATUS_EVENT_TOPIC));
     }
 
     @Override
@@ -201,45 +212,37 @@ public class ScheduleNotificationSubscriberService extends AbstractNotificationS
       throws IOException, DatasetManagementException {
 
       String programRunIdString = notification.getProperties().get(ProgramOptionConstants.PROGRAM_RUN_ID);
-      String programStatusString = notification.getProperties().get(ProgramOptionConstants.PROGRAM_STATUS);
+      String programRunStatusString = notification.getProperties().get(ProgramOptionConstants.PROGRAM_STATUS);
 
-      ProgramStatus programStatus = null;
+      ProgramStatus programStatus;
       try {
-        programStatus = ProgramStatus.valueOf(programStatusString);
+        programStatus = ProgramRunStatus.toProgramStatus(ProgramRunStatus.valueOf(programRunStatusString));
       } catch (IllegalArgumentException e) {
-        LOG.warn("Invalid program status {} passed for programId {}", programStatusString, programRunIdString, e);
-        // Fall through, let the thread return normally
+        // Return silently, this happens for statuses that are not meant to be scheduled
+        return;
       }
 
-      // Ignore notifications which specify an invalid ProgramId, RunId, or ProgramStatus
+      // Ignore notifications which specify an invalid programRunId or programStatus
       if (programRunIdString == null || programStatus == null) {
         return;
       }
 
       ProgramRunId programRunId = GSON.fromJson(programRunIdString, ProgramRunId.class);
-      String triggerKeyForProgramStatus = Schedulers.triggerKeyForProgramStatus(programRunId.getParent(),
-                                                                                programStatus);
+      ProgramId programId = programRunId.getParent();
+      String triggerKeyForProgramStatus = Schedulers.triggerKeyForProgramStatus(programId, programStatus);
+      Collection<ProgramScheduleRecord> triggeredSchedules = getSchedules(context, triggerKeyForProgramStatus);
 
-      for (ProgramScheduleRecord schedule : getSchedules(context, triggerKeyForProgramStatus)) {
-        if (schedule.getMeta().getStatus() == ProgramScheduleStatus.SCHEDULED) {
-          // If the triggered program is a workflow, send the notification that contains the workflow token to be used
-          if (schedule.getSchedule().getProgramId().getType() == ProgramType.WORKFLOW &&
-            programRunId.getParent().getType() == ProgramType.WORKFLOW) {
-
-            Map<String, String> updatedProperties = notification.getProperties();
-            updatedProperties.put(ProgramOptionConstants.WORKFLOW_TOKEN,
-                                  GSON.toJson(getAppMetadataStore(context).getWorkflowToken(new WorkflowId(programRunId.getParent().getParent(), programRunId.getProgram()),
-                                                                     programRunId.getRun())));
-            Notification notificationWithToken = new Notification(Notification.Type.PROGRAM_STATUS, updatedProperties);
-            getJobQueue(context).addNotification(schedule, notificationWithToken);
-          } else {
-            // Otherwise send the notification without the workflow token
-            Map<String, String> properties = new HashMap<>(notification.getProperties());
-            properties.remove(ProgramOptionConstants.WORKFLOW_TOKEN);
-            Notification programWithoutWorkflow = new Notification(Notification.Type.PROGRAM_STATUS, properties);
-            getJobQueue(context).addNotification(schedule, programWithoutWorkflow);
+      // Only fetch the triggering program information if there is at least one triggered and enabled schedule
+      Collection<ProgramScheduleRecord> enabledSchedules =
+        Collections2.filter(triggeredSchedules, new com.google.common.base.Predicate<ProgramScheduleRecord>() {
+          @Override
+          public boolean apply(ProgramScheduleRecord programScheduleRecord) {
+            return programScheduleRecord.getMeta().getStatus() == ProgramScheduleStatus.SCHEDULED;
           }
-        }
+        });
+
+      for (ProgramScheduleRecord schedule : enabledSchedules) {
+        getJobQueue(context).addNotification(schedule, notification);
       }
     }
   }
