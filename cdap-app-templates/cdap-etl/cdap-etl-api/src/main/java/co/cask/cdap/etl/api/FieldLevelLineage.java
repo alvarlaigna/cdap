@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * <p>FieldLevelLineage is a DataType for computing lineage for each field in a dataset.
+ * <p>FieldLevelLineage is a data type for computing lineage for each field in a dataset.
  * An instance of this type can be sent to be sent to platform through API for transform stages.</p>
  */
 public interface FieldLevelLineage {
