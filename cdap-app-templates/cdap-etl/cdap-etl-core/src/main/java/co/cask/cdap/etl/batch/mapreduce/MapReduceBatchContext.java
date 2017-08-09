@@ -22,6 +22,8 @@ import co.cask.cdap.api.data.batch.OutputFormatProvider;
 import co.cask.cdap.api.mapreduce.MapReduceContext;
 import co.cask.cdap.api.messaging.MessageFetcher;
 import co.cask.cdap.api.messaging.MessagePublisher;
+import co.cask.cdap.api.metrics.Metrics;
+import co.cask.cdap.etl.api.FieldLevelLineage;
 import co.cask.cdap.etl.api.StageSubmitter;
 import co.cask.cdap.etl.api.batch.BatchContext;
 import co.cask.cdap.etl.api.batch.BatchSinkContext;
@@ -54,6 +56,7 @@ public class MapReduceBatchContext<T> extends AbstractBatchContext
   private final Set<String> outputNames;
   private final Set<String> inputNames;
   private final Set<String> connectorDatasets;
+  private FieldLevelLineage fieldLevelLineage;
 
   public MapReduceBatchContext(MapReduceContext context, PipelineRuntime pipelineRuntime, StageSpec stageSpec,
                                Set<String> connectorDatasets) {
@@ -189,5 +192,15 @@ public class MapReduceBatchContext<T> extends AbstractBatchContext
   @Override
   public T getContext() {
     return (T) this;
+  }
+
+  @Override
+  public void recordLineage(FieldLevelLineage f) {
+    this.fieldLevelLineage = f;
+  }
+
+  @Override
+  public FieldLevelLineage getFieldLevelLineage() {
+    return this.fieldLevelLineage;
   }
 }
