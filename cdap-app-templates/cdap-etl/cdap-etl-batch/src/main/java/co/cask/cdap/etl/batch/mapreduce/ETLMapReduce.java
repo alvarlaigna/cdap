@@ -213,9 +213,10 @@ public class ETLMapReduce extends AbstractMapReduce {
         MapReduceBatchContext sourceContext = new MapReduceBatchContext(context, pipelineRuntime, stageSpec,
                                                                         connectorDatasets);
         batchSource.prepareRun(sourceContext);
-//        for (String inputAlias : sourceContext.getInputNames()) {
-//          inputAliasToStage.put(inputAlias, sourceName);
-//        }
+        runtimeArgs.put(sourceName, sourceContext.getRuntimeArguments());
+        for (Object inputAlias : sourceContext.getInputNames()) {
+          inputAliasToStage.put((String) inputAlias, sourceName);
+        }
         finishers.add(batchSource, sourceContext);
       } catch (Exception e) {
         // Catch the Exception to generate a User Error Log for the Pipeline
