@@ -16,7 +16,10 @@
 
 package co.cask.cdap.api.workflow;
 
+import co.cask.cdap.api.workflow.condition.ConditionSpecification;
+
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Represents the CONDITION node in the {@link Workflow}.
@@ -25,13 +28,27 @@ public class WorkflowConditionNode extends WorkflowNode {
   private final List<WorkflowNode> ifBranch;
   private final List<WorkflowNode> elseBranch;
   private final String predicateClassName;
+  private final ConditionSpecification conditionSpecification;
 
   public WorkflowConditionNode(String nodeId, String predicateClassName, List<WorkflowNode> ifBranch,
                                List<WorkflowNode> elseBranch) {
+    this(nodeId, ifBranch, elseBranch, predicateClassName, null);
+  }
+
+  public WorkflowConditionNode(String nodeId, ConditionSpecification conditionSpecification,
+                               List<WorkflowNode> ifBranch, List<WorkflowNode> elseBranch) {
+    this(nodeId, ifBranch, elseBranch, null, conditionSpecification);
+  }
+
+  private WorkflowConditionNode(String nodeId, List<WorkflowNode> ifBranch,
+                                List<WorkflowNode> elseBranch,
+                                @Nullable String predicateClassName,
+                                @Nullable ConditionSpecification conditionSpecification) {
     super(nodeId, WorkflowNodeType.CONDITION);
     this.ifBranch = ifBranch;
     this.elseBranch = elseBranch;
     this.predicateClassName = predicateClassName;
+    this.conditionSpecification = conditionSpecification;
   }
 
   public List<WorkflowNode> getIfBranch() {
@@ -42,7 +59,25 @@ public class WorkflowConditionNode extends WorkflowNode {
     return elseBranch;
   }
 
+  @Nullable
   public String getPredicateClassName() {
     return predicateClassName;
+  }
+
+  @Nullable
+  public ConditionSpecification getConditionSpecification() {
+    return conditionSpecification;
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder("WorkflowConditionNode{");
+    sb.append("nodeId=").append(nodeId);
+    sb.append(", predicateClassName=").append(predicateClassName);
+    sb.append(", conditionSpecification=").append(conditionSpecification);
+    sb.append(", ifBranch=").append(ifBranch);
+    sb.append(", elseBranch=").append(elseBranch);
+    sb.append('}');
+    return sb.toString();
   }
 }

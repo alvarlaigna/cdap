@@ -32,11 +32,15 @@ import co.cask.cdap.api.workflow.WorkflowForkConfigurer;
 import co.cask.cdap.api.workflow.WorkflowForkNode;
 import co.cask.cdap.api.workflow.WorkflowNode;
 import co.cask.cdap.api.workflow.WorkflowSpecification;
+import co.cask.cdap.api.workflow.condition.Condition;
+import co.cask.cdap.api.workflow.condition.ConditionSpecification;
 import co.cask.cdap.internal.app.DefaultPluginConfigurer;
 import co.cask.cdap.internal.app.runtime.artifact.ArtifactRepository;
 import co.cask.cdap.internal.app.runtime.plugin.PluginInstantiator;
+import co.cask.cdap.internal.app.workflow.condition.DefaultConditionConfigurer;
 import co.cask.cdap.internal.dataset.DatasetCreationSpec;
 import co.cask.cdap.proto.Id;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
@@ -122,9 +126,14 @@ public class DefaultWorkflowConfigurer extends DefaultPluginConfigurer
 
   @Override
   public WorkflowConditionConfigurer<? extends WorkflowConfigurer> condition(Predicate<WorkflowContext> predicate) {
-    return new DefaultWorkflowConditionConfigurer<>(predicate.getClass().getSimpleName(), this,
-                                                    predicate.getClass().getName(), deployNamespace, artifactId,
+    return new DefaultWorkflowConditionConfigurer<>(predicate, this, deployNamespace, artifactId,
                                                     artifactRepository, pluginInstantiator);
+  }
+
+  @Override
+  public WorkflowConditionConfigurer<? extends WorkflowConfigurer> condition(Condition condition) {
+    return new DefaultWorkflowConditionConfigurer<>(condition, this, deployNamespace, artifactId, artifactRepository,
+                                                    pluginInstantiator);
   }
 
   private void checkArgument(boolean condition, String template, Object...args) {
@@ -206,7 +215,12 @@ public class DefaultWorkflowConfigurer extends DefaultPluginConfigurer
     ifbranch.addAll(createNodesWithId(conditionNode.getIfBranch()));
     elsebranch.addAll(createNodesWithId(conditionNode.getElseBranch()));
 
-    return new WorkflowConditionNode(conditionNodeId, conditionNode.getPredicateClassName(), ifbranch, elsebranch);
+    if (conditionNode.getPredicateClassName() != null) {
+      return new WorkflowConditionNode(conditionNodeId, conditionNode.getPredicateClassName(), ifbranch, elsebranch);
+    }
+
+    ConditionSpecification spec = conditionNode.getConditionSpecification();
+    return new WorkflowConditionNode(spec.getName(), spec, ifbranch, elsebranch);
   }
 
   @Override
@@ -215,8 +229,19 @@ public class DefaultWorkflowConfigurer extends DefaultPluginConfigurer
   }
 
   @Override
-  public void addWorkflowConditionNode(String conditionNodeName, String predicateClassName, List<WorkflowNode> ifBranch,
+  public void addWorkflowConditionNode(Predicate<WorkflowContext> predicate, List<WorkflowNode> ifBranch,
                                        List<WorkflowNode> elseBranch) {
-    nodes.add(new WorkflowConditionNode(conditionNodeName, predicateClassName, ifBranch, elseBranch));
+    nodes.add(new WorkflowConditionNode(predicate.getClass().getSimpleName(), predicate.getClass().getName(),
+                                        ifBranch, elseBranch));
+  }
+
+  @Override
+  public void addWorkflowConditionNode(Condition condition, List<WorkflowNode> ifBranch,
+                                       List<WorkflowNode> elseBranch) {
+    Preconditions.checkArgument(condition != null, "Condition is null.");
+    ConditionSpecification spec = DefaultConditionConfigurer.configureCondition(condition, deployNamespace,
+                                                                                artifactId, artifactRepository,
+                                                                                pluginInstantiator);
+    nodes.add(new WorkflowConditionNode(spec.getName(), spec, ifBranch, elseBranch));
   }
 }

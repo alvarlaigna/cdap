@@ -26,9 +26,13 @@ import co.cask.cdap.api.workflow.WorkflowContext;
 import co.cask.cdap.api.workflow.WorkflowForkConfigurer;
 import co.cask.cdap.api.workflow.WorkflowForkNode;
 import co.cask.cdap.api.workflow.WorkflowNode;
+import co.cask.cdap.api.workflow.condition.Condition;
+import co.cask.cdap.api.workflow.condition.ConditionSpecification;
 import co.cask.cdap.internal.app.runtime.artifact.ArtifactRepository;
 import co.cask.cdap.internal.app.runtime.plugin.PluginInstantiator;
+import co.cask.cdap.internal.app.workflow.condition.DefaultConditionConfigurer;
 import co.cask.cdap.proto.Id;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -94,9 +98,14 @@ public class DefaultWorkflowForkConfigurer<T extends WorkflowForkJoiner & Workfl
   @Override
   public WorkflowConditionConfigurer<? extends WorkflowForkConfigurer<T>> condition(
     Predicate<WorkflowContext> predicate) {
-    return new DefaultWorkflowConditionConfigurer<>(predicate.getClass().getSimpleName(), this,
-                                                    predicate.getClass().getName(), deployNamespace, artifactId,
-                                                    artifactRepository, pluginInstantiator);
+    return new DefaultWorkflowConditionConfigurer<>(predicate, this, deployNamespace, artifactId, artifactRepository,
+                                                    pluginInstantiator);
+  }
+
+  @Override
+  public WorkflowConditionConfigurer<? extends WorkflowForkConfigurer<T>> condition(Condition condition) {
+    return new DefaultWorkflowConditionConfigurer<>(condition, this, deployNamespace, artifactId, artifactRepository,
+                                                    pluginInstantiator);
   }
 
   @Override
@@ -120,8 +129,19 @@ public class DefaultWorkflowForkConfigurer<T extends WorkflowForkJoiner & Workfl
   }
 
   @Override
-  public void addWorkflowConditionNode(String conditionNodeName, String predicateClassName, List<WorkflowNode> ifBranch,
+  public void addWorkflowConditionNode(Predicate<WorkflowContext> predicate, List<WorkflowNode> ifBranch,
                                        List<WorkflowNode> elseBranch) {
-    currentBranch.add(new WorkflowConditionNode(conditionNodeName, predicateClassName, ifBranch, elseBranch));
+    currentBranch.add(new WorkflowConditionNode(predicate.getClass().getSimpleName(), predicate.getClass().getName(),
+                                                ifBranch, elseBranch));
+  }
+
+  @Override
+  public void addWorkflowConditionNode(Condition condition, List<WorkflowNode> ifBranch,
+                                       List<WorkflowNode> elseBranch) {
+    Preconditions.checkArgument(condition != null, "Condition is null.");
+    ConditionSpecification spec = DefaultConditionConfigurer.configureCondition(condition, deployNamespace,
+                                                                                artifactId, artifactRepository,
+                                                                                pluginInstantiator);
+    currentBranch.add(new WorkflowConditionNode(spec.getName(), spec, ifBranch, elseBranch));
   }
 }

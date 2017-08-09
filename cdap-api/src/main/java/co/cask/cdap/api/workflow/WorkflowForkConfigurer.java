@@ -18,6 +18,7 @@ package co.cask.cdap.api.workflow;
 
 import co.cask.cdap.api.Predicate;
 import co.cask.cdap.api.customaction.CustomAction;
+import co.cask.cdap.api.workflow.condition.Condition;
 
 /**
  * Defines an interface for the fork in the {@link Workflow}.
@@ -65,10 +66,17 @@ public interface WorkflowForkConfigurer<T> {
 
   /**
    * Adds a condition to the current branch of the fork.
-   * @param condition the {@link Predicate} to be evaluated at the condition node
+   * @param predicate the {@link Predicate} to be evaluated at the condition node
    * @return the configurer for the condition
    */
-  WorkflowConditionConfigurer<? extends WorkflowForkConfigurer<T>> condition(Predicate<WorkflowContext> condition);
+  WorkflowConditionConfigurer<? extends WorkflowForkConfigurer<T>> condition(Predicate<WorkflowContext> predicate);
+
+  /**
+   * Adds a condition to the current branch of the fork.
+   * @param condition the {@link Condition} to be evaluated at the condition node
+   * @return the configurer for the condition
+   */
+  WorkflowConditionConfigurer<? extends WorkflowForkConfigurer<T>> condition(Condition condition);
 
   /**
    * Adds a branch to the {@link WorkflowForkNode}

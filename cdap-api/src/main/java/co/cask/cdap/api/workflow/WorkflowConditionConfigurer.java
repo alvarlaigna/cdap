@@ -18,6 +18,7 @@ package co.cask.cdap.api.workflow;
 
 import co.cask.cdap.api.Predicate;
 import co.cask.cdap.api.customaction.CustomAction;
+import co.cask.cdap.api.workflow.condition.Condition;
 
 /**
  * Defines an interface for the conditions in the {@link Workflow}.
@@ -65,6 +66,13 @@ public interface WorkflowConditionConfigurer<T> {
    * @return the configurer for the nested condition
    */
   WorkflowConditionConfigurer<? extends WorkflowConditionConfigurer<T>> condition(Predicate<WorkflowContext> condition);
+
+  /**
+   * Adds a nested condition to the current condition.
+   * @param condition the {@link Condition} to be evaluated
+   * @return the configurer for the condition
+   */
+  WorkflowConditionConfigurer<? extends WorkflowConditionConfigurer<T>> condition(Condition condition);
 
   /**
    * Adds a branch to the {@link WorkflowConditionNode} which is executed if the condition evaluates to the false.

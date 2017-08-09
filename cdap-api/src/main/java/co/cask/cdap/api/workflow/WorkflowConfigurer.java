@@ -23,6 +23,7 @@ import co.cask.cdap.api.customaction.CustomAction;
 import co.cask.cdap.api.dataset.Dataset;
 import co.cask.cdap.api.dataset.DatasetProperties;
 import co.cask.cdap.api.plugin.PluginConfigurer;
+import co.cask.cdap.api.workflow.condition.Condition;
 
 /**
  * Configurer for configuring the {@link Workflow}.
@@ -78,6 +79,13 @@ public interface WorkflowConfigurer extends ProgramConfigurer, PluginConfigurer 
    * @return the configurer for the condition
    */
   WorkflowConditionConfigurer<? extends WorkflowConfigurer> condition(Predicate<WorkflowContext> condition);
+
+  /**
+   * Adds a condition to the {@link Workflow}.
+   * @param condition the {@link Condition} to be evaluated
+   * @return the configurer for the condition
+   */
+  WorkflowConditionConfigurer<? extends WorkflowConfigurer> condition(Condition condition);
 
   /**
    * Adds a local dataset instance to the {@link Workflow}.

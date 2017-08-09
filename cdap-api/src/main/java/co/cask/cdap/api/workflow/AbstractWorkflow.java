@@ -23,6 +23,7 @@ import co.cask.cdap.api.annotation.TransactionPolicy;
 import co.cask.cdap.api.customaction.CustomAction;
 import co.cask.cdap.api.dataset.Dataset;
 import co.cask.cdap.api.dataset.DatasetProperties;
+import co.cask.cdap.api.workflow.condition.Condition;
 import co.cask.cdap.internal.api.AbstractPluginConfigurable;
 
 import java.util.Map;
@@ -144,6 +145,15 @@ public abstract class AbstractWorkflow extends AbstractPluginConfigurable<Workfl
   protected final WorkflowConditionConfigurer<? extends WorkflowConfigurer> condition(
     Predicate<WorkflowContext> predicate) {
     return configurer.condition(predicate);
+  }
+
+  /**
+   * Adds a condition to the {@link Workflow}.
+   * @param condition the {@link Condition} to be evaluated to determine which branch to take
+   * @return the {@link WorkflowConditionConfigurer} to configure the branches in the condition
+   */
+  protected final WorkflowConditionConfigurer<? extends WorkflowConfigurer> condition(Condition condition) {
+    return configurer.condition(condition);
   }
 
   /**

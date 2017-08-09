@@ -44,6 +44,9 @@ import co.cask.cdap.api.workflow.WorkflowNodeState;
 import co.cask.cdap.api.workflow.WorkflowNodeType;
 import co.cask.cdap.api.workflow.WorkflowSpecification;
 import co.cask.cdap.api.workflow.WorkflowToken;
+import co.cask.cdap.api.workflow.condition.AbstractCondition;
+import co.cask.cdap.api.workflow.condition.Condition;
+import co.cask.cdap.api.workflow.condition.ConditionSpecification;
 import co.cask.cdap.app.program.Program;
 import co.cask.cdap.app.runtime.ProgramOptions;
 import co.cask.cdap.app.runtime.ProgramRunnerFactory;
@@ -52,13 +55,16 @@ import co.cask.cdap.app.store.RuntimeStore;
 import co.cask.cdap.common.conf.CConfiguration;
 import co.cask.cdap.common.conf.Constants;
 import co.cask.cdap.common.lang.InstantiatorFactory;
+import co.cask.cdap.common.lang.PropertyFieldSetter;
 import co.cask.cdap.common.logging.LoggingContext;
 import co.cask.cdap.common.logging.LoggingContextAccessor;
 import co.cask.cdap.common.service.Retries;
 import co.cask.cdap.common.service.RetryStrategies;
 import co.cask.cdap.data2.dataset2.DatasetFramework;
 import co.cask.cdap.data2.transaction.Transactions;
+import co.cask.cdap.internal.app.runtime.AbstractContext;
 import co.cask.cdap.internal.app.runtime.BasicArguments;
+import co.cask.cdap.internal.app.runtime.DataSetFieldSetter;
 import co.cask.cdap.internal.app.runtime.MetricsFieldSetter;
 import co.cask.cdap.internal.app.runtime.ProgramOptionConstants;
 import co.cask.cdap.internal.app.runtime.ProgramRunners;
@@ -108,7 +114,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
@@ -130,7 +135,7 @@ final class WorkflowDriver extends AbstractExecutionThreadService {
   private final Map<String, WorkflowActionNode> status = new ConcurrentHashMap<>();
   private final LoggingContext loggingContext;
   private final Lock lock;
-  private final Condition condition;
+  private final java.util.concurrent.locks.Condition condition;
   private final MetricsCollectionService metricsCollectionService;
   private final NameMappedDatasetFramework datasetFramework;
   private final DiscoveryServiceClient discoveryServiceClient;
@@ -478,26 +483,73 @@ final class WorkflowDriver extends AbstractExecutionThreadService {
     }
   }
 
+  private Condition createCondition(BasicWorkflowContext context, ConditionSpecification spec,
+                                    InstantiatorFactory instantiator, ClassLoader classLoader) throws Exception {
+    Class<?> clz = Class.forName(spec.getClassName(), true, classLoader);
+    Preconditions.checkArgument(Condition.class.isAssignableFrom(clz), "%s is not a Condition.", clz);
+    Condition workflowCondition = instantiator.get(TypeToken.of((Class<? extends Condition>) clz)).create();
+    Reflections.visit(workflowCondition, workflowCondition.getClass(),
+                      new PropertyFieldSetter(spec.getProperties()),
+                      new DataSetFieldSetter(context),
+                      new MetricsFieldSetter(context.getMetrics()));
+    return workflowCondition;
+  }
+
   @SuppressWarnings("unchecked")
-  private void executeCondition(ApplicationSpecification appSpec, WorkflowConditionNode node,
+  private void executeCondition(ApplicationSpecification appSpec, final WorkflowConditionNode node,
                                 InstantiatorFactory instantiator, ClassLoader classLoader,
                                 WorkflowToken token) throws Exception {
-    Class<?> clz = classLoader.loadClass(node.getPredicateClassName());
-    Predicate<WorkflowContext> predicate = instantiator.get(
-      TypeToken.of((Class<? extends Predicate<WorkflowContext>>) clz)).create();
 
-    WorkflowContext context = new BasicWorkflowContext(workflowSpec, null, token, program, programOptions, cConf,
-                                                       metricsCollectionService, datasetFramework, txClient,
-                                                       discoveryServiceClient, nodeStates, pluginInstantiator,
-                                                       secureStore, secureStoreManager, messagingService);
-    Iterator<WorkflowNode> iterator;
-    if (predicate.apply(context)) {
-      // execute the if branch
-      iterator = node.getIfBranch().iterator();
+    final BasicWorkflowContext context = new BasicWorkflowContext(workflowSpec, null, token, program, programOptions,
+                                                                  cConf, metricsCollectionService, datasetFramework,
+                                                                  txClient, discoveryServiceClient, nodeStates,
+                                                                  pluginInstantiator, secureStore, secureStoreManager,
+                                                                  messagingService);
+    final Iterator<WorkflowNode> iterator;
+    if (node.getPredicateClassName() != null) {
+      Class<?> clz = classLoader.loadClass(node.getPredicateClassName());
+      Predicate<WorkflowContext> predicate = instantiator.get(
+        TypeToken.of((Class<? extends Predicate<WorkflowContext>>) clz)).create();
+
+      if (predicate.apply(context)) {
+        // execute the if branch
+        iterator = node.getIfBranch().iterator();
+      } else {
+        // execute the else branch
+        iterator = node.getElseBranch().iterator();
+      }
+
     } else {
-      // execute the else branch
-      iterator = node.getElseBranch().iterator();
+      final Condition workflowCondition = createCondition(context, node.getConditionSpecification(), instantiator,
+                                                          classLoader);
+
+      try {
+        // AbstractCondition implements final initialize(context) and requires subclass to
+        // implement initialize(), whereas conditions that directly implement Condition can
+        // override initialize(context)
+
+        TransactionControl txControl = workflowCondition instanceof AbstractCondition
+          ? Transactions.getTransactionControl(TransactionControl.IMPLICIT, AbstractCondition.class,
+                                               workflowCondition, "initialize")
+          : Transactions.getTransactionControl(TransactionControl.IMPLICIT, Condition.class,
+                                               workflowCondition, "initialize", WorkflowContext.class);
+
+        context.initializeProgram(workflowCondition, context, txControl, false);
+        boolean result = context.executeChecked(new Callable<Boolean>() {
+          @Override
+          public Boolean call() throws Exception {
+            return workflowCondition.apply(context);
+          }
+        });
+        iterator = result ? node.getIfBranch().iterator() : node.getElseBranch().iterator();
+      } finally {
+        TransactionControl txControl =
+          Transactions.getTransactionControl(TransactionControl.IMPLICIT, Condition.class, workflowCondition,
+                                             "destroy");
+        context.destroyProgram(workflowCondition, context, txControl, false);
+      }
     }
+
     // If a workflow updates its token at a condition node, it will be persisted after the execution of the next node.
     // However, the call below ensures that even if the workflow fails/crashes after a condition node, updates from the
     // condition node are also persisted.
