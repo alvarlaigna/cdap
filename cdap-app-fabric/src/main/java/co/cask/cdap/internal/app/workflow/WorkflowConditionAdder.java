@@ -17,10 +17,10 @@
 package co.cask.cdap.internal.app.workflow;
 
 import co.cask.cdap.api.Predicate;
+import co.cask.cdap.api.workflow.Condition;
 import co.cask.cdap.api.workflow.WorkflowConditionNode;
 import co.cask.cdap.api.workflow.WorkflowContext;
 import co.cask.cdap.api.workflow.WorkflowNode;
-import co.cask.cdap.api.workflow.condition.Condition;
 
 import java.util.List;
 

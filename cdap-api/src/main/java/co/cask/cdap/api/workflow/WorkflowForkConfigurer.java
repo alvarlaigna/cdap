@@ -18,7 +18,6 @@ package co.cask.cdap.api.workflow;
 
 import co.cask.cdap.api.Predicate;
 import co.cask.cdap.api.customaction.CustomAction;
-import co.cask.cdap.api.workflow.condition.Condition;
 
 /**
  * Defines an interface for the fork in the {@link Workflow}.

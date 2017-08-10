@@ -16,7 +16,7 @@
 
 package co.cask.cdap.internal.workflow.condition;
 
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
+import co.cask.cdap.api.workflow.ConditionSpecification;
 
 import java.util.Collections;
 import java.util.HashMap;

@@ -15,7 +15,7 @@
  */
 package co.cask.cdap.proto.codec;
 
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
+import co.cask.cdap.api.workflow.ConditionSpecification;
 import co.cask.cdap.internal.workflow.condition.DefaultConditionSpecification;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonElement;
@@ -33,7 +33,8 @@ import java.util.Set;
  */
 public class ConditionSpecificationCodec extends AbstractSpecificationCodec<ConditionSpecification> {
   @Override
-  public ConditionSpecification deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+  public ConditionSpecification deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+    throws JsonParseException {
     JsonObject jsonObj = json.getAsJsonObject();
 
     String className = jsonObj.get("className").getAsString();

@@ -30,6 +30,8 @@ import co.cask.cdap.api.metrics.MetricsCollectionService;
 import co.cask.cdap.api.schedule.SchedulableProgramType;
 import co.cask.cdap.api.security.store.SecureStore;
 import co.cask.cdap.api.security.store.SecureStoreManager;
+import co.cask.cdap.api.workflow.AbstractCondition;
+import co.cask.cdap.api.workflow.Condition;
 import co.cask.cdap.api.workflow.NodeStatus;
 import co.cask.cdap.api.workflow.ScheduleProgramInfo;
 import co.cask.cdap.api.workflow.Workflow;
@@ -44,9 +46,6 @@ import co.cask.cdap.api.workflow.WorkflowNodeState;
 import co.cask.cdap.api.workflow.WorkflowNodeType;
 import co.cask.cdap.api.workflow.WorkflowSpecification;
 import co.cask.cdap.api.workflow.WorkflowToken;
-import co.cask.cdap.api.workflow.condition.AbstractCondition;
-import co.cask.cdap.api.workflow.condition.Condition;
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
 import co.cask.cdap.app.program.Program;
 import co.cask.cdap.app.runtime.ProgramOptions;
 import co.cask.cdap.app.runtime.ProgramRunnerFactory;
@@ -62,7 +61,6 @@ import co.cask.cdap.common.service.Retries;
 import co.cask.cdap.common.service.RetryStrategies;
 import co.cask.cdap.data2.dataset2.DatasetFramework;
 import co.cask.cdap.data2.transaction.Transactions;
-import co.cask.cdap.internal.app.runtime.AbstractContext;
 import co.cask.cdap.internal.app.runtime.BasicArguments;
 import co.cask.cdap.internal.app.runtime.DataSetFieldSetter;
 import co.cask.cdap.internal.app.runtime.MetricsFieldSetter;
@@ -483,18 +481,6 @@ final class WorkflowDriver extends AbstractExecutionThreadService {
     }
   }
 
-  private Condition createCondition(BasicWorkflowContext context, ConditionSpecification spec,
-                                    InstantiatorFactory instantiator, ClassLoader classLoader) throws Exception {
-    Class<?> clz = Class.forName(spec.getClassName(), true, classLoader);
-    Preconditions.checkArgument(Condition.class.isAssignableFrom(clz), "%s is not a Condition.", clz);
-    Condition workflowCondition = instantiator.get(TypeToken.of((Class<? extends Condition>) clz)).create();
-    Reflections.visit(workflowCondition, workflowCondition.getClass(),
-                      new PropertyFieldSetter(spec.getProperties()),
-                      new DataSetFieldSetter(context),
-                      new MetricsFieldSetter(context.getMetrics()));
-    return workflowCondition;
-  }
-
   @SuppressWarnings("unchecked")
   private void executeCondition(ApplicationSpecification appSpec, final WorkflowConditionNode node,
                                 InstantiatorFactory instantiator, ClassLoader classLoader,
@@ -506,22 +492,18 @@ final class WorkflowDriver extends AbstractExecutionThreadService {
                                                                   pluginInstantiator, secureStore, secureStoreManager,
                                                                   messagingService);
     final Iterator<WorkflowNode> iterator;
-    if (node.getPredicateClassName() != null) {
-      Class<?> clz = classLoader.loadClass(node.getPredicateClassName());
-      Predicate<WorkflowContext> predicate = instantiator.get(
-        TypeToken.of((Class<? extends Predicate<WorkflowContext>>) clz)).create();
+    Class<?> clz = classLoader.loadClass(node.getPredicateClassName());
+    Predicate<WorkflowContext> predicate = instantiator.get(
+      TypeToken.of((Class<? extends Predicate<WorkflowContext>>) clz)).create();
 
-      if (predicate.apply(context)) {
-        // execute the if branch
-        iterator = node.getIfBranch().iterator();
-      } else {
-        // execute the else branch
-        iterator = node.getElseBranch().iterator();
-      }
-
+    if (!(predicate instanceof Condition)) {
+      iterator = predicate.apply(context) ? node.getIfBranch().iterator() : node.getElseBranch().iterator();
     } else {
-      final Condition workflowCondition = createCondition(context, node.getConditionSpecification(), instantiator,
-                                                          classLoader);
+      final Condition workflowCondition = (Condition) predicate;
+
+      Reflections.visit(workflowCondition, workflowCondition.getClass(),
+                        new PropertyFieldSetter(node.getConditionSpecification().getProperties()),
+                        new DataSetFieldSetter(context), new MetricsFieldSetter(context.getMetrics()));
 
       try {
         // AbstractCondition implements final initialize(context) and requires subclass to

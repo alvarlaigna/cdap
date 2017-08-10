@@ -23,7 +23,6 @@ import co.cask.cdap.api.customaction.CustomAction;
 import co.cask.cdap.api.dataset.Dataset;
 import co.cask.cdap.api.dataset.DatasetProperties;
 import co.cask.cdap.api.plugin.PluginConfigurer;
-import co.cask.cdap.api.workflow.condition.Condition;
 
 /**
  * Configurer for configuring the {@link Workflow}.

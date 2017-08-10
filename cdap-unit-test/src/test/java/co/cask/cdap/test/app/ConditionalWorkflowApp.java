@@ -19,10 +19,10 @@ package co.cask.cdap.test.app;
 import co.cask.cdap.api.Predicate;
 import co.cask.cdap.api.app.AbstractApplication;
 import co.cask.cdap.api.customaction.AbstractCustomAction;
+import co.cask.cdap.api.workflow.AbstractCondition;
 import co.cask.cdap.api.workflow.AbstractWorkflow;
 import co.cask.cdap.api.workflow.WorkflowContext;
 import co.cask.cdap.api.workflow.WorkflowToken;
-import co.cask.cdap.api.workflow.condition.AbstractCondition;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

@@ -13,11 +13,10 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package co.cask.cdap.api.workflow.condition;
+package co.cask.cdap.api.workflow;
 
 import co.cask.cdap.api.common.PropertyProvider;
 import co.cask.cdap.api.dataset.Dataset;
-import co.cask.cdap.api.workflow.Workflow;
 
 import java.util.Set;
 

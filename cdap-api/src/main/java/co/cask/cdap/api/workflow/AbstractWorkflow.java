@@ -23,7 +23,6 @@ import co.cask.cdap.api.annotation.TransactionPolicy;
 import co.cask.cdap.api.customaction.CustomAction;
 import co.cask.cdap.api.dataset.Dataset;
 import co.cask.cdap.api.dataset.DatasetProperties;
-import co.cask.cdap.api.workflow.condition.Condition;
 import co.cask.cdap.internal.api.AbstractPluginConfigurable;
 
 import java.util.Map;

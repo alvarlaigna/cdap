@@ -13,20 +13,13 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+package co.cask.cdap.api.workflow;
 
-package co.cask.cdap.api.workflow.condition;
-
-import co.cask.cdap.api.Predicate;
-import co.cask.cdap.api.ProgramLifecycle;
-import co.cask.cdap.api.workflow.WorkflowContext;
+import co.cask.cdap.api.ProgramConfigurer;
+import co.cask.cdap.api.plugin.PluginConfigurer;
 
 /**
- * Defines configurable condition in the Workflow.
+ * Configurer for configuring the {@link Condition} in the {@link Workflow}.
  */
-public interface Condition extends ProgramLifecycle<WorkflowContext>, Predicate<WorkflowContext> {
-  /**
-   * Configures the condition.
-   * @param configurer the {@link ConditionConfigurer} used to configure the condition.
-   */
-  void configure(ConditionConfigurer configurer);
+public interface ConditionConfigurer extends ProgramConfigurer, PluginConfigurer {
 }

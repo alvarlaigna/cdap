@@ -19,6 +19,8 @@ package co.cask.cdap.internal.app.workflow;
 import co.cask.cdap.api.Predicate;
 import co.cask.cdap.api.customaction.CustomAction;
 import co.cask.cdap.api.schedule.SchedulableProgramType;
+import co.cask.cdap.api.workflow.Condition;
+import co.cask.cdap.api.workflow.ConditionSpecification;
 import co.cask.cdap.api.workflow.WorkflowAction;
 import co.cask.cdap.api.workflow.WorkflowConditionConfigurer;
 import co.cask.cdap.api.workflow.WorkflowConditionNode;
@@ -26,15 +28,16 @@ import co.cask.cdap.api.workflow.WorkflowContext;
 import co.cask.cdap.api.workflow.WorkflowForkConfigurer;
 import co.cask.cdap.api.workflow.WorkflowForkNode;
 import co.cask.cdap.api.workflow.WorkflowNode;
-import co.cask.cdap.api.workflow.condition.Condition;
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
 import co.cask.cdap.internal.app.runtime.artifact.ArtifactRepository;
 import co.cask.cdap.internal.app.runtime.plugin.PluginInstantiator;
 import co.cask.cdap.internal.app.workflow.condition.DefaultConditionConfigurer;
+import co.cask.cdap.internal.workflow.condition.DefaultConditionSpecification;
 import co.cask.cdap.proto.Id;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -131,8 +134,11 @@ public class DefaultWorkflowForkConfigurer<T extends WorkflowForkJoiner & Workfl
   @Override
   public void addWorkflowConditionNode(Predicate<WorkflowContext> predicate, List<WorkflowNode> ifBranch,
                                        List<WorkflowNode> elseBranch) {
-    currentBranch.add(new WorkflowConditionNode(predicate.getClass().getSimpleName(), predicate.getClass().getName(),
-                                                ifBranch, elseBranch));
+    ConditionSpecification spec = new DefaultConditionSpecification(predicate.getClass().getName(),
+                                                                    predicate.getClass().getSimpleName(), "",
+                                                                    new HashMap<String, String>(),
+                                                                    new HashSet<String>());
+    currentBranch.add(new WorkflowConditionNode(spec.getName(), spec, ifBranch, elseBranch));
   }
 
   @Override

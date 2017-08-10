@@ -15,9 +15,9 @@
  */
 package co.cask.cdap.internal.app.workflow.condition;
 
-import co.cask.cdap.api.workflow.condition.Condition;
-import co.cask.cdap.api.workflow.condition.ConditionConfigurer;
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
+import co.cask.cdap.api.workflow.Condition;
+import co.cask.cdap.api.workflow.ConditionConfigurer;
+import co.cask.cdap.api.workflow.ConditionSpecification;
 import co.cask.cdap.internal.app.DefaultPluginConfigurer;
 import co.cask.cdap.internal.app.runtime.artifact.ArtifactRepository;
 import co.cask.cdap.internal.app.runtime.plugin.PluginInstantiator;

@@ -14,11 +14,12 @@
  * the License.
  */
 
-package co.cask.cdap.api.workflow.condition;
+package co.cask.cdap.api.workflow;
 
 import co.cask.cdap.api.annotation.TransactionControl;
 import co.cask.cdap.api.annotation.TransactionPolicy;
-import co.cask.cdap.api.workflow.WorkflowContext;
+import co.cask.cdap.api.mapreduce.MapReduce;
+import co.cask.cdap.api.mapreduce.MapReduceContext;
 
 import java.util.Map;
 
@@ -69,17 +70,28 @@ public abstract class AbstractCondition implements Condition {
     initialize();
   }
 
+  /**
+   * Classes derived from {@link AbstractCondition} can override this method to initialize the {@link Condition}.
+   * {@link WorkflowContext} will be available in this method using {@link AbstractCondition#getContext} method.
+   * @throws Exception if there is any error in initializing the Condition
+   */
   @TransactionPolicy(TransactionControl.IMPLICIT)
   protected void initialize() throws Exception {
     // No-op by default
   }
 
+  /**
+   * Classes derived from {@link AbstractCondition} can override this method to destroy the {@link Condition}.
+   */
   @Override
   @TransactionPolicy(TransactionControl.IMPLICIT)
   public void destroy() {
 
   }
 
+  /**
+   * @return an instance of {@link WorkflowContext}
+   */
   protected final WorkflowContext getContext() {
     return context;
   }

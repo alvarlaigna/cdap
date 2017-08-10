@@ -18,9 +18,9 @@ package co.cask.cdap.client;
 
 import co.cask.cdap.api.annotation.Beta;
 import co.cask.cdap.api.customaction.CustomActionSpecification;
+import co.cask.cdap.api.workflow.ConditionSpecification;
 import co.cask.cdap.api.workflow.WorkflowActionNode;
 import co.cask.cdap.api.workflow.WorkflowActionSpecification;
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
 import co.cask.cdap.client.config.ClientConfig;
 import co.cask.cdap.client.util.RESTClient;
 import co.cask.cdap.common.ApplicationNotFoundException;

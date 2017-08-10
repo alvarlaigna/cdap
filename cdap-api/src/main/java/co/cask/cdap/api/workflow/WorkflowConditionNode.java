@@ -16,9 +16,11 @@
 
 package co.cask.cdap.api.workflow;
 
-import co.cask.cdap.api.workflow.condition.ConditionSpecification;
-
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -37,12 +39,11 @@ public class WorkflowConditionNode extends WorkflowNode {
 
   public WorkflowConditionNode(String nodeId, ConditionSpecification conditionSpecification,
                                List<WorkflowNode> ifBranch, List<WorkflowNode> elseBranch) {
-    this(nodeId, ifBranch, elseBranch, null, conditionSpecification);
+    this(nodeId, ifBranch, elseBranch, conditionSpecification.getClassName(), conditionSpecification);
   }
 
   private WorkflowConditionNode(String nodeId, List<WorkflowNode> ifBranch,
-                                List<WorkflowNode> elseBranch,
-                                @Nullable String predicateClassName,
+                                List<WorkflowNode> elseBranch, String predicateClassName,
                                 @Nullable ConditionSpecification conditionSpecification) {
     super(nodeId, WorkflowNodeType.CONDITION);
     this.ifBranch = ifBranch;
@@ -59,14 +60,12 @@ public class WorkflowConditionNode extends WorkflowNode {
     return elseBranch;
   }
 
-  @Nullable
   public String getPredicateClassName() {
     return predicateClassName;
   }
 
-  @Nullable
   public ConditionSpecification getConditionSpecification() {
-    return conditionSpecification;
+    return conditionSpecification == null ? createSpecifications() : conditionSpecification;
   }
 
   @Override
@@ -79,5 +78,39 @@ public class WorkflowConditionNode extends WorkflowNode {
     sb.append(", elseBranch=").append(elseBranch);
     sb.append('}');
     return sb.toString();
+  }
+
+  private ConditionSpecification createSpecifications() {
+    return new ConditionSpecification() {
+      @Override
+      public String getClassName() {
+        return predicateClassName;
+      }
+
+      @Override
+      public String getName() {
+        return nodeId;
+      }
+
+      @Override
+      public String getDescription() {
+        return "";
+      }
+
+      @Override
+      public Set<String> getDatasets() {
+        return new HashSet<>();
+      }
+
+      @Override
+      public Map<String, String> getProperties() {
+        return new HashMap<>();
+      }
+
+      @Override
+      public String getProperty(String key) {
+        return null;
+      }
+    };
   }
 }
