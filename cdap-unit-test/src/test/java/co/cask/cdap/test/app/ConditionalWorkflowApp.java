@@ -85,8 +85,8 @@ public class ConditionalWorkflowApp extends AbstractApplication {
     }
 
     @Override
-    protected void initialize() throws Exception {
-      super.initialize();
+    public void initialize(WorkflowContext context) throws Exception {
+      super.initialize(context);
       getContext().getToken().put("configurable.condition.initialize", "true");
     }
 

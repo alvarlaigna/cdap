@@ -65,19 +65,8 @@ public abstract class AbstractCondition implements Condition {
 
   @Override
   @TransactionPolicy(TransactionControl.IMPLICIT)
-  public final void initialize(WorkflowContext context) throws Exception {
+  public void initialize(WorkflowContext context) throws Exception {
     this.context = context;
-    initialize();
-  }
-
-  /**
-   * Classes derived from {@link AbstractCondition} can override this method to initialize the {@link Condition}.
-   * {@link WorkflowContext} will be available in this method using {@link AbstractCondition#getContext} method.
-   * @throws Exception if there is any error in initializing the Condition
-   */
-  @TransactionPolicy(TransactionControl.IMPLICIT)
-  protected void initialize() throws Exception {
-    // No-op by default
   }
 
   /**
