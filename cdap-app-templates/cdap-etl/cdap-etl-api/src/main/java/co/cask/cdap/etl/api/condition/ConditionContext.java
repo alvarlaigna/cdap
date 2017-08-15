@@ -20,6 +20,7 @@ import co.cask.cdap.api.Transactional;
 import co.cask.cdap.api.security.store.SecureStore;
 import co.cask.cdap.api.security.store.SecureStoreManager;
 import co.cask.cdap.etl.api.StageContext;
+import co.cask.cdap.etl.api.action.SettableArguments;
 
 import java.util.Map;
 
@@ -34,4 +35,18 @@ public interface ConditionContext extends StageContext, Transactional, SecureSto
    * @return stage statistics associated with the stages that were executed before the condition
    */
   Map<String, StageStatistics> getStageStatistics();
+
+  /**
+   * Return the arguments which can be updated.
+   */
+  SettableArguments getArguments();
+
+  /**
+   * Returns the logical start time of the batch job which triggers this instance of an condition.
+   * Logical start time is the time when the triggering Batch job is supposed to start if it is
+   * started by the scheduler. Otherwise it would be the current time when the action runs.
+   *
+   * @return Time in milliseconds since epoch time (00:00:00 January 1, 1970 UTC).
+   */
+  long getLogicalStartTime();
 }
