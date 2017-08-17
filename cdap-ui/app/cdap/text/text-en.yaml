@@ -81,13 +81,13 @@ commons:
     reset: Reset
     valuePlaceholder: value
   market: Cask Market
+  milliSecondsShortLabel: msecs
   nameLabel: Name
   notAvailable: 'N/A'
   please: Please
   resource-center: Add Entity
   schemaLabel: Schema
   secondsShortLabel: secs
-  milliSecondsShortLabel: msecs
   then: Then
   tracker: Cask Tracker
   stream: Stream

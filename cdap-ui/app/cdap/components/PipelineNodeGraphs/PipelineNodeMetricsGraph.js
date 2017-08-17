@@ -29,9 +29,9 @@ import CopyableRunID from 'components/PipelineSummary/CopyableRunID';
 import {humanReadableDuration} from 'services/helpers';
 
 const PREFIX = `features.PipelineSummary.pipelineNodesMetricsGraph`;
-const RECORDS_IN_PATH_COLOR = '#97A0BA';
+const RECORDS_OUT_PATH_COLOR = '#97A0BA';
 const RECORDS_ERROR_PATH_COLOR = '#A40403';
-const RECORDS_OUT_PATH_COLOR = '#58B7F6';
+const RECORDS_IN_PATH_COLOR = '#58B7F6';
 const REGEXTOLABELLIST = [
   {
     id: 'processmintime',
@@ -171,7 +171,7 @@ export default class PipelineNodeMetricsGraph extends Component {
       'recordsOut': {
         data: this.state.recordsOutData,
         label: T.translate(`${PREFIX}.recordsOutTitle`),
-        color: RECORDS_IN_PATH_COLOR
+        color: RECORDS_OUT_PATH_COLOR
       },
       'recordsError': {
         data: this.state.recordsErrorData,
@@ -186,7 +186,7 @@ export default class PipelineNodeMetricsGraph extends Component {
       'recordsIn': {
         data: this.state.recordsInData,
         label: T.translate(`${PREFIX}.recordsInTitle`),
-        color: RECORDS_OUT_PATH_COLOR
+        color: RECORDS_IN_PATH_COLOR
       }
     };
     if (this.isPluginSink()) {
