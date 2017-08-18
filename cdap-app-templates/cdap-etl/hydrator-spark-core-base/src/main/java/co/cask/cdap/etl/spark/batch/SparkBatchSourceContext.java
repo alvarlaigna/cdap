@@ -34,8 +34,8 @@ import java.util.UUID;
  *
  * @param <T> execution context
  */
-public class SparkBatchSourceContext<T> extends AbstractBatchContext
-  implements BatchSourceContext, StageSubmitter<T> {
+public class SparkBatchSourceContext extends AbstractBatchContext
+  implements BatchSourceContext, StageSubmitterContext {
   private final SparkBatchSourceFactory sourceFactory;
   private final boolean isPreviewEnabled;
   private final SparkClientContext sparkContext;
@@ -79,8 +79,4 @@ public class SparkBatchSourceContext<T> extends AbstractBatchContext
     return sparkContext.getMessageFetcher();
   }
 
-  @Override
-  public T getContext() {
-    return (T) this;
-  }
 }

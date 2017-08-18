@@ -30,7 +30,7 @@ import co.cask.cdap.api.mapreduce.MapReduceTaskContext;
 import co.cask.cdap.api.metrics.Metrics;
 import co.cask.cdap.api.workflow.WorkflowToken;
 import co.cask.cdap.etl.api.AlertPublisher;
-import co.cask.cdap.etl.api.StageSubmitter;
+import co.cask.cdap.etl.api.StageSubmitterContext;
 import co.cask.cdap.etl.api.Transform;
 import co.cask.cdap.etl.api.TransformContext;
 import co.cask.cdap.etl.api.batch.BatchAggregator;
@@ -228,7 +228,7 @@ public class ETLMapReduce extends AbstractMapReduce {
 
     for (StageSpec transformInfo : phase.getStagesOfType(Transform.PLUGIN_TYPE)) {
       Transform transform = pluginInstantiator.newPluginInstance(transformInfo.getName(), evaluator);
-      StageSubmitter<TransformContext> transformContext =
+      StageSubmitterContext transformContext =
         new MapReduceBatchContext<>(context, pipelineRuntime, transformInfo, connectorDatasets);
       transform.prepareRun(transformContext);
       finishers.add(transform, transformContext);

@@ -16,7 +16,7 @@
 
 package co.cask.cdap.etl.common;
 
-import co.cask.cdap.etl.api.StageSubmitter;
+import co.cask.cdap.etl.api.StageSubmitterContext;
 import co.cask.cdap.etl.api.Transform;
 import co.cask.cdap.etl.api.TransformContext;
 import co.cask.cdap.etl.api.batch.BatchConfigurable;
@@ -82,7 +82,7 @@ public class CompositeFinisher implements Finisher {
       return this;
     }
 
-    public <T extends StageSubmitter<TransformContext>> Builder add(final Transform transform, final T context) {
+    public <T extends StageSubmitterContext<TransformContext>> Builder add(final Transform transform, final T context) {
       finishers.add(new Finisher() {
         @Override
         public void onFinish(boolean succeeded) {

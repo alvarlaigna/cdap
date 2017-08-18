@@ -32,7 +32,7 @@ public interface SubmitterLifecycle<T> {
    * @param context submitter context
    * @throws Exception if there's an error during this method invocation
    */
-  void prepareRun(StageSubmitter<T> context) throws Exception;
+  void prepareRun(T context) throws Exception;
 
   /**
    * Invoked after the run finishes. Used to perform any end of the run logic.
@@ -40,5 +40,5 @@ public interface SubmitterLifecycle<T> {
    * @param succeeded defines the result of batch execution: true if run succeeded, false otherwise
    * @param context submitter context
    */
-  void onRunFinish(boolean succeeded, StageSubmitter<T> context);
+  void onRunFinish(boolean succeeded, T context);
 }
