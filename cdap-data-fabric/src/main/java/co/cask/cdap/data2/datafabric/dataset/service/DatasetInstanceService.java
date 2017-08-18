@@ -162,7 +162,7 @@ public class DatasetInstanceService {
    */
   DatasetMeta get(final DatasetId instance, List<? extends EntityId> owners) throws Exception {
     // ensure user has correct privileges before getting the meta if the dataset is not a system dataset
-    if (DatasetsUtil.isUserDataset(instance)) {
+    if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
       AuthorizationUtil.ensureOnePrivilege(instance, EnumSet.of(Action.ADMIN, Action.READ, Action.WRITE),
                                            authorizationEnforcer, authenticationContext.getPrincipal());
     }
@@ -224,7 +224,7 @@ public class DatasetInstanceService {
    */
   Map<String, String> getOriginalProperties(DatasetId instance) throws Exception {
     // Only return the properties if authorization succeeds
-    if (DatasetsUtil.isUserDataset(instance)) {
+    if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
       AuthorizationUtil.ensureAccess(instance, authorizationEnforcer, authenticationContext.getPrincipal());
     }
     DatasetSpecification spec = instanceManager.get(instance);
@@ -260,7 +260,7 @@ public class DatasetInstanceService {
       String namespacePrincipal = ownerAdmin.getOwnerPrincipal(namespace);
       principalId = namespacePrincipal == null ? null : new KerberosPrincipalId(namespacePrincipal);
     }
-    if (DatasetsUtil.isUserDataset(datasetId)) {
+    if (!DatasetsUtil.isSystemDatasetInUserNamespace(datasetId)) {
       if (principalId != null) {
         authorizationEnforcer.enforce(principalId, principal, Action.ADMIN);
       }
@@ -326,7 +326,7 @@ public class DatasetInstanceService {
    */
   void update(DatasetId instance, Map<String, String> properties) throws Exception {
     ensureNamespaceExists(instance.getParent());
-    if (DatasetsUtil.isUserDataset(instance)) {
+    if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
       authorizationEnforcer.enforce(instance, authenticationContext.getPrincipal(), Action.ADMIN);
     }
     DatasetSpecification existing = instanceManager.get(instance);
@@ -365,7 +365,7 @@ public class DatasetInstanceService {
    *  have {@link Action#ADMIN} privileges on the #instance
    */
   void drop(DatasetId instance) throws Exception {
-    if (DatasetsUtil.isUserDataset(instance)) {
+    if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
       authorizationEnforcer.enforce(instance, authenticationContext.getPrincipal(), Action.ADMIN);
     }
     ensureNamespaceExists(instance.getParent());
@@ -393,7 +393,7 @@ public class DatasetInstanceService {
     for (DatasetSpecification spec : instanceManager.getAll(namespaceId)) {
       try {
         DatasetId datasetId = namespaceId.dataset(spec.getName());
-        if (DatasetsUtil.isUserDataset(datasetId)) {
+        if (!DatasetsUtil.isSystemDatasetInUserNamespace(datasetId)) {
           authorizationEnforcer.enforce(datasetId, principal, Action.ADMIN);
         }
         dropDataset(datasetId, spec);
@@ -432,13 +432,13 @@ public class DatasetInstanceService {
     switch (method) {
       case "exists":
         // ensure the user has some privilege on the dataset instance if it is not system dataset
-        if (DatasetsUtil.isUserDataset(instance)) {
+        if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
           AuthorizationUtil.ensureAccess(instance, authorizationEnforcer, principal);
         }
         result = opExecutorClient.exists(instance);
         break;
       case "truncate":
-        if (DatasetsUtil.isUserDataset(instance)) {
+        if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
           authorizationEnforcer.enforce(instance, principal, Action.ADMIN);
         }
         if (instanceManager.get(instance) == null) {
@@ -448,7 +448,7 @@ public class DatasetInstanceService {
         publishAudit(instance, AuditType.TRUNCATE);
         break;
       case "upgrade":
-        if (DatasetsUtil.isUserDataset(instance)) {
+        if (!DatasetsUtil.isSystemDatasetInUserNamespace(instance)) {
           authorizationEnforcer.enforce(instance, principal, Action.ADMIN);
         }
         if (instanceManager.get(instance) == null) {
