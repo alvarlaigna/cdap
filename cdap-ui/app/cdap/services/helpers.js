@@ -249,6 +249,14 @@ const difference = (first, second) => {
   return first > second ? first - second : second - first;
 };
 
+const isPluginSink = (pluginType) => {
+  return ['batchsink', 'realtimesink', 'sparksink'].indexOf(pluginType) !== -1;
+};
+
+const isPluginSource = (pluginType) => {
+  return ['batchsource', 'realtimesource', 'streamingsource'].indexOf(pluginType) !== -1;
+};
+
 export {
   objectQuery,
   convertBytesToHumanReadable,
@@ -264,5 +272,7 @@ export {
   preventPropagation,
   requiredFieldsCompleted,
   defaultAction,
-  difference
+  difference,
+  isPluginSource,
+  isPluginSink
 };

@@ -26,7 +26,7 @@ import findIndex from 'lodash/findIndex';
 import {getGapFilledAccumulatedData} from 'components/PipelineSummary/RunsGraphHelpers';
 import LoadingSVGCentered from 'components/LoadingSVGCentered';
 import CopyableRunID from 'components/PipelineSummary/CopyableRunID';
-import {humanReadableDuration} from 'services/helpers';
+import {humanReadableDuration, isPluginSource, isPluginSink} from 'services/helpers';
 
 const PREFIX = `features.PipelineSummary.pipelineNodesMetricsGraph`;
 const RECORDS_OUT_PATH_COLOR = '#97A0BA';
@@ -189,7 +189,7 @@ export default class PipelineNodeMetricsGraph extends Component {
         color: RECORDS_IN_PATH_COLOR
       }
     };
-    if (this.isPluginSink()) {
+    if (isPluginSink(this.props.plugin.type)) {
       return Object.assign({}, defaultMap, {
         'recordsError': {
           data: this.state.recordsErrorData,
@@ -362,11 +362,11 @@ export default class PipelineNodeMetricsGraph extends Component {
         if (metric.match(/user.*.process.time.total/)) {
           totalProcessingTime = this.state.processTimeMetrics[metric] / 1000000;
         }
-        if (this.isPluginSource() && metric.match(/user.*.records.in/)) {
+        if (isPluginSource(this.props.plugin.type) && metric.match(/user.*.records.in/)) {
           validRecords = this.state.processTimeMetrics[metric];
           return;
         }
-        if (this.isPluginSink() && metric.match(/user.*.records.out/)) {
+        if (isPluginSink(this.props.plugin.type) && metric.match(/user.*.records.out/)) {
           validRecords = this.state.processTimeMetrics[metric];
           return;
         }
@@ -414,15 +414,7 @@ export default class PipelineNodeMetricsGraph extends Component {
         </table>
       </div>
     );
-  };
-
-  isPluginSource = () => {
-    return ['batchsource', 'realtimesource', 'streamingsource'].indexOf(this.props.plugin.type) !== -1;
-  };
-
-  isPluginSink = () => {
-    return ['batchsink', 'realtimesink', 'sparksink'].indexOf(this.props.plugin.type) !== -1;
-  };
+  }
 
   renderMetrics(data, type) {
     if (this.state.aggregate) {
@@ -446,7 +438,7 @@ export default class PipelineNodeMetricsGraph extends Component {
     return (
       <div className="node-metrics-container">
         {
-          this.isPluginSource() ?
+          isPluginSource(this.props.plugin.type) ?
             null
           :
             <div>
@@ -462,7 +454,7 @@ export default class PipelineNodeMetricsGraph extends Component {
                           {this.renderRecordsCount('totalRecordsIn')}
                         </span>
                         {
-                          this.isPluginSink() ?
+                          isPluginSink(this.props.plugin.type) ?
                             <span className="error-records-count">
                               {this.renderRecordsCount('totalRecordsError')}
                             </span>
@@ -477,7 +469,7 @@ export default class PipelineNodeMetricsGraph extends Component {
             </div>
         }
         {
-          this.isPluginSink() ?
+          isPluginSink(this.props.plugin.type) ?
             null
           :
             <div>
