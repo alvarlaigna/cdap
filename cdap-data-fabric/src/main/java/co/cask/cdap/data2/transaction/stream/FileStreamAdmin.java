@@ -433,11 +433,12 @@ public class FileStreamAdmin implements StreamAdmin {
       specifiedOwnerPrincipal == null ? null : new KerberosPrincipalId(specifiedOwnerPrincipal);
     if (!streamId.getNamespaceId().equals(NamespaceId.SYSTEM) && principalId == null) {
       // if stream owner is not present, get the namespace impersonation principal
-      String namespacePrincipal = ownerAdmin.getOwnerPrincipal(streamId.getNamespaceId());
+      String namespacePrincipal = ownerAdmin.getImpersonationPrincipal(streamId.getNamespaceId());
       principalId = namespacePrincipal == null ? null : new KerberosPrincipalId(namespacePrincipal);
     }
-    if (principalId != null) {
-      authorizationEnforcer.enforce(principalId, authenticationContext.getPrincipal(), Action.ADMIN);
+    Principal principal = authenticationContext.getPrincipal();
+    if (principalId != null && !principal.getName().equals(principalId.getPrincipal())) {
+      authorizationEnforcer.enforce(principalId, principal, Action.ADMIN);
     }
     ensureAccess(streamId, Action.ADMIN);
 

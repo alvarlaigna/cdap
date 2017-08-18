@@ -147,11 +147,11 @@ public final class DefaultNamespaceAdmin implements NamespaceAdmin {
 
     // need to enforce on the principal id if impersonation is involved
     String ownerPrincipal = metadata.getConfig().getPrincipal();
-    if (ownerPrincipal != null) {
-      authorizationEnforcer.enforce(new KerberosPrincipalId(ownerPrincipal), authenticationContext.getPrincipal(),
-                                    Action.ADMIN);
+    Principal principal = authenticationContext.getPrincipal();
+    if (ownerPrincipal != null && !ownerPrincipal.equals(principal.getName())) {
+      authorizationEnforcer.enforce(new KerberosPrincipalId(ownerPrincipal), principal, Action.ADMIN);
     }
-    authorizationEnforcer.enforce(namespace, authenticationContext.getPrincipal(), Action.ADMIN);
+    authorizationEnforcer.enforce(namespace, principal, Action.ADMIN);
 
     // If this namespace has custom mapping then validate the given custom mapping
     if (hasCustomMapping(metadata)) {

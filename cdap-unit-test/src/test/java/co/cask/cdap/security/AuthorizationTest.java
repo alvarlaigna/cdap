@@ -18,6 +18,7 @@ package co.cask.cdap.security;
 
 import co.cask.cdap.AllProgramsApp;
 import co.cask.cdap.ConfigTestApp;
+import co.cask.cdap.api.Config;
 import co.cask.cdap.api.artifact.ArtifactSummary;
 import co.cask.cdap.api.common.Bytes;
 import co.cask.cdap.api.dataset.lib.CloseableIterator;
@@ -39,7 +40,9 @@ import co.cask.cdap.proto.artifact.AppRequest;
 import co.cask.cdap.proto.id.ApplicationId;
 import co.cask.cdap.proto.id.ArtifactId;
 import co.cask.cdap.proto.id.DatasetId;
+import co.cask.cdap.proto.id.DatasetTypeId;
 import co.cask.cdap.proto.id.EntityId;
+import co.cask.cdap.proto.id.KerberosPrincipalId;
 import co.cask.cdap.proto.id.NamespaceId;
 import co.cask.cdap.proto.id.ProgramId;
 import co.cask.cdap.proto.id.StreamId;
@@ -112,6 +115,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import javax.annotation.Nullable;
 
 /**
  * Unit tests with authorization enabled.
@@ -1328,15 +1332,120 @@ public class AuthorizationTest extends TestBase {
     }
   }
 
+  /**
+   * Note that the impersonation is not actually happening since we do not have keytab files for unit test,
+   * all impersonation doAs will be no-op, but we can still simulate the namespace deploy and app creation in the test
+   */
+  @Test
+  public void testCreationWithOwner() throws Exception {
+    // this test will test deploy app without app owner specified. Like namespace impersonation
+    testDeployAppWithoutOwner();
+    // this test will test deploy app with app owner specified. Like app impersonation
+    testDeployAppWithOwner();
+  }
+
+  private void testDeployAppWithoutOwner() throws Exception {
+    NamespaceId namespaceId = new NamespaceId("namespaceImpersonation");
+    // We will create a namespace as owner bob, the keytab url is provided to pass the check for DefaultNamespaceAdmin
+    // in unit test, it is useless, since impersonation will never happen
+    NamespaceMeta ownerNSMeta = new NamespaceMeta.Builder().setName(namespaceId.getNamespace())
+      .setPrincipal(BOB.getName()).setKeytabURI("/tmp/").build();
+    KerberosPrincipalId bobPrincipalId = new KerberosPrincipalId(BOB.getName());
+
+    // grant alice admin to the namespace, but creation should still fail since alice needs to have privilege on
+    // principal bob
+    grantAndAssertSuccess(namespaceId, ALICE, EnumSet.of(Action.ADMIN));
+    cleanUpEntities.add(namespaceId);
+    try {
+      getNamespaceAdmin().create(ownerNSMeta);
+      Assert.fail("Namespace creation should fail since alice does not have privilege on principal bob");
+    } catch (UnauthorizedException e) {
+      // expected
+    }
+
+    // grant alice admin on principal bob, now creation of namespace should work
+    grantAndAssertSuccess(bobPrincipalId, ALICE, EnumSet.of(Action.ADMIN));
+    cleanUpEntities.add(bobPrincipalId);
+    getNamespaceAdmin().create(ownerNSMeta);
+
+    // deploy dummy app with ns impersonation
+    deployDummyAppWithImpersonation(ownerNSMeta, null);
+  }
+
+  private void testDeployAppWithOwner() throws Exception {
+    NamespaceId namespaceId = new NamespaceId("appImpersonation");
+    NamespaceMeta nsMeta = new NamespaceMeta.Builder().setName(namespaceId.getNamespace()).build();
+    // grant ALICE admin on namespace and create namespace
+    grantAndAssertSuccess(namespaceId, ALICE, EnumSet.of(Action.ADMIN));
+    cleanUpEntities.add(namespaceId);
+    getNamespaceAdmin().create(nsMeta);
+
+    // deploy dummy app with app impersonation
+    deployDummyAppWithImpersonation(nsMeta, BOB.getName());
+  }
+
+  private void deployDummyAppWithImpersonation(NamespaceMeta nsMeta, @Nullable String appOwner) throws Exception {
+    NamespaceId namespaceId = nsMeta.getNamespaceId();
+    ApplicationId dummyAppId = namespaceId.app(DummyApp.class.getSimpleName());
+    ArtifactId artifactId = namespaceId.artifact(DummyApp.class.getSimpleName(), "1.0-SNAPSHOT");
+    DatasetId datasetId = namespaceId.dataset("whom");
+    DatasetTypeId datasetTypeId = namespaceId.datasetType(KeyValueTable.class.getName());
+    StreamId streamId = namespaceId.stream("who");
+    String owner = appOwner != null ? appOwner : nsMeta.getConfig().getPrincipal();
+    KerberosPrincipalId principalId = new KerberosPrincipalId(owner);
+    Principal principal = new Principal(owner, Principal.PrincipalType.USER);
+    // these are the privileges that are needed to deploy the app if no impersonation is involved,
+    // can check testApps() for more info
+    Map<EntityId, Set<Action>> neededPrivileges = ImmutableMap.<EntityId, Set<Action>>builder()
+      .put(dummyAppId, EnumSet.of(Action.ADMIN))
+      .put(artifactId, EnumSet.of(Action.ADMIN))
+      .put(datasetId, EnumSet.of(Action.ADMIN))
+      .put(streamId, EnumSet.of(Action.ADMIN))
+      .put(datasetTypeId, EnumSet.of(Action.ADMIN))
+      .put(principalId, EnumSet.of(Action.ADMIN))
+      .build();
+    setUpPrivilegeAndRegisterForDeletion(ALICE, neededPrivileges);
+
+    // add the artifact
+    addAppArtifact(artifactId, DummyApp.class);
+    AppRequest<? extends Config> appRequest =
+      new AppRequest<>(new ArtifactSummary(artifactId.getArtifact(), artifactId.getVersion()), null, appOwner);
+
+    try {
+      deployApplication(dummyAppId, appRequest);
+      Assert.fail();
+    } catch (Exception e) {
+      Assert.assertTrue(e.getMessage().contains("403 Forbidden"));
+    }
+
+    // revoke privileges on datasets and streams from alice, she does not need these privileges to deploy the app
+    // the owner will need these privileges to deploy
+    revokeAndAssertSuccess(datasetId);
+    revokeAndAssertSuccess(datasetTypeId);
+    revokeAndAssertSuccess(streamId);
+
+    // grant ADMIN privileges to owner
+    grantAndAssertSuccess(datasetId, principal, EnumSet.of(Action.ADMIN));
+    grantAndAssertSuccess(datasetTypeId, principal, EnumSet.of(Action.ADMIN));
+    grantAndAssertSuccess(streamId, principal, EnumSet.of(Action.ADMIN));
+
+    // this time it should be successful
+    deployApplication(dummyAppId, appRequest);
+    // clean up the privilege on the owner principal id
+    revokeAndAssertSuccess(principalId);
+  }
+
   @After
   @Override
   public void afterTest() throws Exception {
     Authorizer authorizer = getAuthorizer();
 
     grantAndAssertSuccess(AUTH_NAMESPACE, SecurityRequestContext.toPrincipal(), EnumSet.of(Action.ADMIN));
-    // clean up. remove the namespace.
-    getNamespaceAdmin().delete(AUTH_NAMESPACE);
-    Assert.assertFalse(getNamespaceAdmin().exists(AUTH_NAMESPACE));
+    if (getNamespaceAdmin().exists(AUTH_NAMESPACE)) {
+      // clean up. remove the namespace.
+      getNamespaceAdmin().delete(AUTH_NAMESPACE);
+      Assert.assertFalse(getNamespaceAdmin().exists(AUTH_NAMESPACE));
+    }
     revokeAndAssertSuccess(AUTH_NAMESPACE);
     for (EntityId entityId : cleanUpEntities) {
       revokeAndAssertSuccess(entityId);

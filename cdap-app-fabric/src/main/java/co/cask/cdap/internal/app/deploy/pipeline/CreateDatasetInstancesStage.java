@@ -20,6 +20,10 @@ import co.cask.cdap.api.app.ApplicationSpecification;
 import co.cask.cdap.common.conf.CConfiguration;
 import co.cask.cdap.data2.dataset2.DatasetFramework;
 import co.cask.cdap.pipeline.AbstractStage;
+import co.cask.cdap.proto.id.KerberosPrincipalId;
+import co.cask.cdap.proto.id.NamespaceId;
+import co.cask.cdap.security.impersonation.OwnerAdmin;
+import co.cask.cdap.security.spi.authentication.AuthenticationContext;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -28,10 +32,15 @@ import com.google.common.reflect.TypeToken;
  */
 public class CreateDatasetInstancesStage extends AbstractStage<ApplicationDeployable> {
   private final DatasetInstanceCreator datasetInstanceCreator;
+  private final OwnerAdmin ownerAdmin;
+  private final AuthenticationContext authenticationContext;
 
-  public CreateDatasetInstancesStage(CConfiguration configuration, DatasetFramework datasetFramework) {
+  public CreateDatasetInstancesStage(CConfiguration configuration, DatasetFramework datasetFramework,
+                                     OwnerAdmin ownerAdmin, AuthenticationContext authenticationContext) {
     super(TypeToken.of(ApplicationDeployable.class));
     this.datasetInstanceCreator = new DatasetInstanceCreator(configuration, datasetFramework);
+    this.ownerAdmin = ownerAdmin;
+    this.authenticationContext = authenticationContext;
   }
 
   /**
@@ -44,8 +53,14 @@ public class CreateDatasetInstancesStage extends AbstractStage<ApplicationDeploy
   public void process(ApplicationDeployable input) throws Exception {
     // create dataset instances
     ApplicationSpecification specification = input.getSpecification();
-    datasetInstanceCreator.createInstances(input.getApplicationId().getParent(), specification.getDatasets(),
-                                           input.getOwnerPrincipal());
+    NamespaceId namespaceId = input.getApplicationId().getParent();
+    KerberosPrincipalId ownerPrincipal = input.getOwnerPrincipal();
+    // set the requesting user to be the app owner if it is present, otherwise set it to namespace owner
+    String requestingUser =
+      ownerPrincipal != null ? ownerPrincipal.getPrincipal() : ownerAdmin.getImpersonationPrincipal(namespaceId);
+    // if namespace owner is still null set it to the current user who is making the call
+    requestingUser = requestingUser == null ? authenticationContext.getPrincipal().getName() : requestingUser;
+    datasetInstanceCreator.createInstances(namespaceId, specification.getDatasets(), ownerPrincipal, requestingUser);
 
     // Emit the input to next stage.
     emit(input);

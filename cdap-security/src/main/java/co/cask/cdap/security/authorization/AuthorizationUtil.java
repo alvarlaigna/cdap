@@ -21,6 +21,7 @@ import co.cask.cdap.common.conf.Constants;
 import co.cask.cdap.proto.id.EntityId;
 import co.cask.cdap.proto.security.Action;
 import co.cask.cdap.proto.security.Principal;
+import co.cask.cdap.security.spi.authentication.SecurityRequestContext;
 import co.cask.cdap.security.spi.authorization.AuthorizationEnforcer;
 import co.cask.cdap.security.spi.authorization.UnauthorizedException;
 import com.google.common.base.Function;
@@ -34,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import javax.annotation.Nullable;
 
 /**
@@ -123,5 +125,18 @@ public class AuthorizationUtil {
    */
   public static boolean isSecurityAuthorizationEnabled(CConfiguration cConf) {
     return cConf.getBoolean(Constants.Security.ENABLED) && cConf.getBoolean(Constants.Security.Authorization.ENABLED);
+  }
+
+  /**
+   * Helper function, to run the callable as the principal provided and reset back when the call is done
+   */
+  public static <T> T doAs(String userName, Callable<T> callable) throws Exception {
+    String oldUserName = SecurityRequestContext.getUserId();
+    SecurityRequestContext.setUserId(userName);
+    try {
+      return callable.call();
+    } finally {
+      SecurityRequestContext.setUserId(oldUserName);
+    }
   }
 }

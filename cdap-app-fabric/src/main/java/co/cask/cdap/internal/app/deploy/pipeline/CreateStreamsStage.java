@@ -19,6 +19,10 @@ package co.cask.cdap.internal.app.deploy.pipeline;
 import co.cask.cdap.api.app.ApplicationSpecification;
 import co.cask.cdap.data2.transaction.stream.StreamAdmin;
 import co.cask.cdap.pipeline.AbstractStage;
+import co.cask.cdap.proto.id.KerberosPrincipalId;
+import co.cask.cdap.proto.id.NamespaceId;
+import co.cask.cdap.security.impersonation.OwnerAdmin;
+import co.cask.cdap.security.spi.authentication.AuthenticationContext;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -27,10 +31,15 @@ import com.google.common.reflect.TypeToken;
  */
 public class CreateStreamsStage extends AbstractStage<ApplicationDeployable> {
   private final StreamCreator streamCreator;
+  private final OwnerAdmin ownerAdmin;
+  private final AuthenticationContext authenticationContext;
 
-  public CreateStreamsStage(StreamAdmin streamAdmin) {
+  public CreateStreamsStage(StreamAdmin streamAdmin, OwnerAdmin ownerAdmin,
+                            AuthenticationContext authenticationContext) {
     super(TypeToken.of(ApplicationDeployable.class));
     this.streamCreator = new StreamCreator(streamAdmin);
+    this.ownerAdmin = ownerAdmin;
+    this.authenticationContext = authenticationContext;
   }
 
   /**
@@ -43,8 +52,14 @@ public class CreateStreamsStage extends AbstractStage<ApplicationDeployable> {
   public void process(ApplicationDeployable input) throws Exception {
     // create stream instances
     ApplicationSpecification specification = input.getSpecification();
-    streamCreator.createStreams(input.getApplicationId().getParent(), specification.getStreams().values(),
-                                input.getOwnerPrincipal());
+    NamespaceId namespaceId = input.getApplicationId().getParent();
+    KerberosPrincipalId ownerPrincipal = input.getOwnerPrincipal();
+    // set the requesting user to be the app owner if it is present, otherwise set it to namespace owner
+    String requestingUser =
+      ownerPrincipal != null ? ownerPrincipal.getPrincipal() : ownerAdmin.getImpersonationPrincipal(namespaceId);
+    // if namespace owner is still null set it to the current user who is making the call
+    requestingUser = requestingUser == null ? authenticationContext.getPrincipal().getName() : requestingUser;
+    streamCreator.createStreams(namespaceId, specification.getStreams().values(), ownerPrincipal, requestingUser);
 
     // Emit the input to next stage.
     emit(input);

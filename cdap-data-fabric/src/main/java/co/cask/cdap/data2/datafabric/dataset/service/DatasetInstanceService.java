@@ -253,10 +253,10 @@ public class DatasetInstanceService {
     KerberosPrincipalId principalId = ownerPrincipal == null ? null : new KerberosPrincipalId(ownerPrincipal);
     if (!namespace.equals(NamespaceId.SYSTEM) && principalId == null) {
       // if dataset owner is not present, get the namespace impersonation principal
-      String namespacePrincipal = ownerAdmin.getOwnerPrincipal(namespace);
+      String namespacePrincipal = ownerAdmin.getImpersonationPrincipal(namespace);
       principalId = namespacePrincipal == null ? null : new KerberosPrincipalId(namespacePrincipal);
     }
-    if (principalId != null) {
+    if (principalId != null && !principal.getName().equals(principalId.getPrincipal())) {
       authorizationEnforcer.enforce(principalId, principal, Action.ADMIN);
     }
     authorizationEnforcer.enforce(datasetId, principal, Action.ADMIN);

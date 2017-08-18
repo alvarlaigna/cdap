@@ -70,6 +70,7 @@ import co.cask.cdap.proto.id.KerberosPrincipalId;
 import co.cask.cdap.proto.id.NamespaceId;
 import co.cask.cdap.proto.id.ProgramId;
 import co.cask.cdap.proto.security.Action;
+import co.cask.cdap.proto.security.Principal;
 import co.cask.cdap.route.store.RouteStore;
 import co.cask.cdap.scheduler.Scheduler;
 import co.cask.cdap.security.authorization.AuthorizationUtil;
@@ -658,12 +659,15 @@ public class ApplicationLifecycleService extends AbstractIdleService {
     KerberosPrincipalId principalId = ownerPrincipal == null ? null : ownerPrincipal;
     if (!namespaceId.equals(NamespaceId.SYSTEM) && ownerPrincipal == null) {
       // if app owner is not present, get the namespace impersonation principal
-      String namespacePrincipal = ownerAdmin.getOwnerPrincipal(namespaceId);
+      String namespacePrincipal = ownerAdmin.getImpersonationPrincipal(namespaceId);
       principalId = namespacePrincipal == null ? null : new KerberosPrincipalId(namespacePrincipal);
     }
-    // enforce that the current principal has the admin privilege on the impersonated principal
-    if (principalId != null) {
-      authorizationEnforcer.enforce(principalId, authenticationContext.getPrincipal(), Action.ADMIN);
+
+    Principal principal = authenticationContext.getPrincipal();
+    // enforce that the current principal, if not the same as the owner principal, has the admin privilege on the
+    // impersonated principal
+    if (principalId != null && !principal.getName().equals(principalId.getPrincipal())) {
+      authorizationEnforcer.enforce(principalId, principal, Action.ADMIN);
     }
 
     ApplicationClass appClass = Iterables.getFirst(artifactDetail.getMeta().getClasses().getApps(), null);
